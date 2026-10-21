@@ -30,8 +30,11 @@ Muse Shell 是一个 Android 端的执行壳：它自己不带任何模型和对
 - **虚拟屏**：独立 dex 的特权进程（root 经 `app_process` 拉起，uid=0）建
   VirtualDisplay，**不需要 MediaProjection 授权弹窗**，能真实承载其他 App 在
   后台运行，输入走 `IInputManager` 注入；60 秒无请求自动销毁，不留孤儿屏
-- **干活**：白名单文件读写、root shell、应用管理（启动/强停/清数据/装卸）、
+- **干活**：白名单文件读写、特权 shell、应用管理（启动/强停/清数据/装卸）、
   系统设置读写（带改前改后值）、通知
+- **双路特权通道**：有 root 走 su；**没 root 的手机装 Shizuku**（用户启动其服务
+  并授权一次）即可用 shell 身份跑命令和虚拟屏——通道模式 auto/su/shizuku 可切换，
+  虚拟屏 core 也随当前通道拉起
 - **留痕**：每次工具调用写 JSONL 账本，可审计
 
 ## 安全模型
