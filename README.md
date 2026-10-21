@@ -81,6 +81,13 @@ python3 server.py                     # 只绑 127.0.0.1:8390，对外请套自�
 虚拟屏建屏/启动应用/截图/点按/关屏、OCR 按字点击均实测通过。
 设计与取舍记录在 [DESIGN.md](DESIGN.md)。
 
+## 致谢
+
+本项目的若干设计受到以下开源项目的启发，在此表示感谢：
+
+- [woaiys3/deepseek-harness-android-app](https://github.com/woaiys3/deepseek-harness-android-app) —— 特权进程虚拟屏与无障碍工具层设计的启发
+- [google/artemis](https://github.com/google/artemis) —— 控件树与 OCR 融合索引思路的启发
+
 ## License
 
 MIT
