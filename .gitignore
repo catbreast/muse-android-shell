@@ -1,0 +1,19 @@
+# 绝密：签名与令牌，永远不要提交
+.ks-pass
+*.keystore
+server/tokens.json
+
+# 构建产物与工具链
+build/
+toolchain/
+*.apk
+*.idsig
+
+# 服务端运行时
+server/ocr-venv/
+server/server.log
+__pycache__/
+*.pyc
+
+# 杂项截图
+*.jpg
