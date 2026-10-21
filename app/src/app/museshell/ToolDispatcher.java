@@ -172,7 +172,9 @@ public class ToolDispatcher {
     private JSONObject privilegeStatus() throws Exception {
         JSONObject o = new JSONObject();
         o.put("mode", ShellRunner.mode);
-        o.put("root", ShellRunner.checkRoot());
+        boolean root = ShellRunner.checkRoot();
+        o.put("root", root);
+        if (!root && ShellRunner.rootError.length() > 0) o.put("root_error", ShellRunner.rootError);
         o.put("shizuku", ShizukuPrivilege.state());
         o.put("active", ShellRunner.activeChannel());
         return o;
@@ -181,7 +183,12 @@ public class ToolDispatcher {
     private JSONObject status() throws Exception {
         JSONObject o = new JSONObject();
         o.put("app", "muse-shell");
-        o.put("version", "0.4.0");
+        String ver = "unknown";
+        try {
+            ver = ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0).versionName;
+        } catch (Exception ignored) {
+        }
+        o.put("version", ver);
         o.put("privilege", privilegeStatus());
         o.put("android", Build.VERSION.RELEASE);
         o.put("sdk", Build.VERSION.SDK_INT);

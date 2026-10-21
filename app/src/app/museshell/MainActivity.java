@@ -145,9 +145,18 @@ public class MainActivity extends Activity {
         });
         root.addView(shellTrust);
 
-        root.addView(btn("刷新状态与日志", new View.OnClickListener() {
+        LinearLayout row5 = row();
+        row5.addView(btn("刷新状态与日志", new View.OnClickListener() {
             @Override public void onClick(View v) { refresh(); }
         }));
+        row5.addView(btn("清除日志", new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                boolean any = Ledger.clear(MainActivity.this);
+                toast(any ? "日志已清除" : "没有日志可清除");
+                refresh();
+            }
+        }));
+        root.addView(row5);
 
         logView = new TextView(this);
         logView.setTextSize(11);
@@ -203,6 +212,18 @@ public class MainActivity extends Activity {
     }
 
     private void refresh() {
+        try {
+            refreshInner();
+        } catch (Throwable t) {
+            try {
+                statusView.setText("状态读取出错（已拦截，不影响服务）:\n" + t);
+                logView.setText("");
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    private void refreshInner() {
         StringBuilder sb = new StringBuilder();
         sb.append("设备 ID：").append(Prefs.deviceId(this)).append("\n");
         sb.append("服务地址：").append(Prefs.baseUrl(this)).append("\n");

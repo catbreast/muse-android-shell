@@ -15,17 +15,39 @@ import java.util.concurrent.TimeUnit;
 public class ShellRunner {
     private static final int MAX_OUT = 64 * 1024;
     private static Boolean rootOk;
+    private static long rootCheckedAt = 0;
+    /** Why the last root probe failed (exit code / stderr / exception). For status. */
+    public static volatile String rootError = "";
     public static volatile String mode = "auto";
 
     public static boolean checkRoot() {
-        if (rootOk != null) return rootOk;
+        // A positive result is cached for the process lifetime; a negative one
+        // only for 20s — grants can appear later (manager toggle, reboot) and a
+        // permanently cached "no root" once stranded the shell for a whole night.
+        long now = System.currentTimeMillis();
+        if (rootOk != null && (rootOk || now - rootCheckedAt < 20000)) return rootOk;
+        rootCheckedAt = now;
         try {
             JSONObject r = execRaw("id", 8);
-            rootOk = r.optInt("exit", -1) == 0 && r.optString("stdout", "").contains("uid=0");
+            int exit = r.optInt("exit", -1);
+            String out = r.optString("stdout", "");
+            rootOk = exit == 0 && out.contains("uid=0");
+            if (rootOk) {
+                rootError = "";
+            } else {
+                String err = r.optString("stderr", "").trim();
+                rootError = "exit=" + exit + " stdout=" + abbrev(out.trim())
+                        + (err.length() > 0 ? " stderr=" + abbrev(err) : "");
+            }
         } catch (Exception e) {
             rootOk = Boolean.FALSE;
+            rootError = e.getClass().getSimpleName() + ": " + e.getMessage();
         }
         return rootOk;
+    }
+
+    private static String abbrev(String s) {
+        return s.length() > 120 ? s.substring(0, 120) + "…" : s;
     }
 
     /** The channel exec() would use right now: su | shizuku | none. */

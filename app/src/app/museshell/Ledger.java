@@ -62,6 +62,9 @@ public class Ledger {
         return dir;
     }
 
+    private static final long ROTATE_BYTES = 2L * 1024 * 1024;
+    private static final int TAIL_BYTES = 64 * 1024;
+
     public static void log(Context c, String event, JSONObject details) {
         try {
             init(c);
@@ -70,7 +73,13 @@ public class Ledger {
             row.put("event", event);
             if (details != null) row.put("details", details);
             synchronized (LOCK) {
-                FileWriter w = new FileWriter(new File(dir, "ledger.jsonl"), true);
+                File f = new File(dir, "ledger.jsonl");
+                if (f.length() > ROTATE_BYTES) {
+                    File old = new File(dir, "ledger.1.jsonl");
+                    if (old.exists()) old.delete();
+                    f.renameTo(old);
+                }
+                FileWriter w = new FileWriter(f, true);
                 w.write(row.toString());
                 w.write("\n");
                 w.close();
@@ -79,20 +88,45 @@ public class Ledger {
         }
     }
 
+    /** Delete the ledger (current + rotated). Returns true if a file was removed. */
+    public static boolean clear(Context c) {
+        try {
+            init(c);
+            synchronized (LOCK) {
+                boolean any = false;
+                File f = new File(dir, "ledger.jsonl");
+                if (f.exists()) any = f.delete() || any;
+                File old = new File(dir, "ledger.1.jsonl");
+                if (old.exists()) any = old.delete() || any;
+                return any;
+            }
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public static String recent(Context c, int n) {
         try {
             init(c);
             File f = new File(dir, "ledger.jsonl");
-            if (!f.exists()) return "(暂无日志)";
-            List<String> lines = new ArrayList<String>();
-            BufferedReader r = new BufferedReader(new FileReader(f));
-            String line;
-            while ((line = r.readLine()) != null) lines.add(line);
-            r.close();
+            if (!f.exists() || f.length() == 0) return "(暂无日志)";
+            // Read only the tail of the file: the ledger grows unboundedly and the
+            // console used to load all of it on the UI thread (visible jank).
+            java.io.RandomAccessFile raf = new java.io.RandomAccessFile(f, "r");
+            long len = raf.length();
+            long start = Math.max(0, len - TAIL_BYTES);
+            raf.seek(start);
+            byte[] buf = new byte[(int) (len - start)];
+            raf.readFully(buf);
+            raf.close();
+            String text = new String(buf, "UTF-8");
+            String[] lines = text.split("\n");
             StringBuilder sb = new StringBuilder();
-            int from = Math.max(0, lines.size() - n);
-            for (int i = from; i < lines.size(); i++) sb.append(lines.get(i)).append("\n");
-            return sb.toString();
+            int from = Math.max(start > 0 ? 1 : 0, lines.length - n);
+            for (int i = from; i < lines.length; i++) {
+                if (lines[i].length() > 0) sb.append(lines[i]).append("\n");
+            }
+            return sb.length() == 0 ? "(暂无日志)" : sb.toString();
         } catch (Exception e) {
             return "(读取日志失败: " + e.getMessage() + ")";
         }

@@ -68,17 +68,31 @@ public class BridgeService extends Service {
                 .build();
     }
 
+    private volatile String lastNotifText = null;
+
     private void setNotificationText(String text) {
+        if (text.equals(lastNotifText)) return;
+        lastNotifText = text;
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         nm.notify(1, buildNotification(text));
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (!running) {
+        // Liveness is judged by the thread itself, not the running flag: if the
+        // worker died (Error, freeze-kill) while the flag stayed set, a plain
+        // "start service" tap must still be able to revive it.
+        if (worker == null || !worker.isAlive()) {
             running = true;
             worker = new Thread(new Runnable() {
-                @Override public void run() { loop(); }
+                @Override public void run() {
+                    try {
+                        loop();
+                    } catch (Throwable ignored) {
+                    } finally {
+                        running = false;
+                    }
+                }
             }, "muse-bridge");
             worker.setDaemon(true);
             worker.start();
@@ -107,6 +121,7 @@ public class BridgeService extends Service {
                 }
                 if (r.code == 204 || r.body == null || r.body.length() == 0) {
                     backoff = 2000;
+                    setNotificationText("已连接，待机");
                     continue;
                 }
                 if (r.code != 200) {
