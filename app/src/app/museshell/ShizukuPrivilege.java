@@ -63,15 +63,32 @@ public class ShizukuPrivilege {
         final StringBuilder errBuf = new StringBuilder();
         Thread tOut = gobble(p.getInputStream(), outBuf);
         Thread tErr = gobble(p.getErrorStream(), errBuf);
-        boolean done = p.waitFor(timeoutSec, TimeUnit.SECONDS);
-        if (!done) {
+        // NOTE: ShizukuRemoteProcess.waitFor(timeout, unit) polls exitValue()
+        // across the binder and races ("process hasn't exited" leaks through).
+        // Use the blocking waitFor() on our own thread and time it with join().
+        final int[] exitBox = new int[1];
+        final Throwable[] errBox = new Throwable[1];
+        Thread waiter = new Thread(new Runnable() {
+            @Override public void run() {
+                try {
+                    exitBox[0] = p.waitFor();
+                } catch (Throwable t) {
+                    errBox[0] = t;
+                }
+            }
+        });
+        waiter.setDaemon(true);
+        waiter.start();
+        waiter.join(timeoutSec * 1000L);
+        if (waiter.isAlive()) {
             p.destroyForcibly();
             throw new Exception("shell_timeout_" + timeoutSec + "s");
         }
+        if (errBox[0] != null) throw new Exception("wait_failed: " + errBox[0].getMessage());
         tOut.join(1000);
         tErr.join(1000);
         JSONObject o = new JSONObject();
-        o.put("exit", p.exitValue());
+        o.put("exit", exitBox[0]);
         o.put("stdout", cap(outBuf));
         o.put("stderr", cap(errBuf));
         o.put("via", "shizuku");
