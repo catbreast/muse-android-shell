@@ -7,10 +7,15 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.concurrent.TimeUnit;
 
-/** Runs commands as root via su (ReSukiSU). Env sanitized, output capped. */
+/**
+ * Runs commands through the active privilege channel: root via su, or Shizuku
+ * (shell uid) on devices without root. Channel mode is injected per call by
+ * ToolDispatcher from Prefs: auto | su | shizuku. Env sanitized, output capped.
+ */
 public class ShellRunner {
     private static final int MAX_OUT = 64 * 1024;
     private static Boolean rootOk;
+    public static volatile String mode = "auto";
 
     public static boolean checkRoot() {
         if (rootOk != null) return rootOk;
@@ -23,14 +28,35 @@ public class ShellRunner {
         return rootOk;
     }
 
+    /** The channel exec() would use right now: su | shizuku | none. */
+    public static String activeChannel() {
+        if ("su".equals(mode)) return checkRoot() ? "su" : "none";
+        if ("shizuku".equals(mode)) return ShizukuPrivilege.ready() ? "shizuku" : "none";
+        if (checkRoot()) return "su";
+        if (ShizukuPrivilege.ready()) return "shizuku";
+        return "none";
+    }
+
     public static JSONObject exec(String cmd, int timeoutSec) throws Exception {
-        if (!checkRoot()) throw new Exception("su_unavailable: 设备 root 不可用或未给本应用授权");
-        return execRaw(cmd, timeoutSec);
+        String ch = activeChannel();
+        if ("su".equals(ch)) {
+            JSONObject o = execRaw(cmd, timeoutSec);
+            o.put("via", "su");
+            return o;
+        }
+        if ("shizuku".equals(ch)) return ShizukuPrivilege.exec(cmd, timeoutSec);
+        throw new Exception("no_privilege_channel: root 与 Shizuku 均不可用（mode=" + mode
+                + "，shizuku=" + ShizukuPrivilege.state() + "）");
     }
 
     /** Fire-and-forget detached spawn (for the vscreen server). */
     public static void spawnDetached(String cmd) throws Exception {
-        if (!checkRoot()) throw new Exception("su_unavailable");
+        String ch = activeChannel();
+        if ("shizuku".equals(ch)) {
+            ShizukuPrivilege.spawn(cmd);
+            return;
+        }
+        if (!"su".equals(ch)) throw new Exception("no_privilege_channel");
         ProcessBuilder pb = new ProcessBuilder("su", "-c", cmd);
         sanitize(pb);
         pb.redirectErrorStream(true);

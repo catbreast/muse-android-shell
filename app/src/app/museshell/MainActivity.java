@@ -111,6 +111,17 @@ public class MainActivity extends Activity {
         }));
         root.addView(row3);
 
+        LinearLayout row4 = row();
+        row4.addView(btn("申请 Shizuku 授权", new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                boolean sent = ShizukuPrivilege.request();
+                toast(sent ? "已向 Shizuku 发送授权请求，请在弹窗里允许"
+                        : "Shizuku 未运行：请先安装 Shizuku 并启动其服务");
+                refresh();
+            }
+        }));
+        root.addView(row4);
+
         CheckBox kill = new CheckBox(this);
         kill.setText("急停开关（开启后拒绝一切工具调用）");
         kill.setChecked(Prefs.killSwitch(this));
@@ -204,6 +215,9 @@ public class MainActivity extends Activity {
             sb.append("悬浮窗：").append(Settings.canDrawOverlays(this) ? "已授权" : "未授权").append("\n");
         }
         sb.append("急停：").append(Prefs.killSwitch(this) ? "开启" : "关闭").append("\n");
+        sb.append("Shizuku：").append(ShizukuPrivilege.state())
+          .append("（特权通道模式：")
+          .append(Prefs.sp(this).getString("privilege_mode", "auto")).append("）\n");
         boolean perm = Build.VERSION.SDK_INT < 23
                 || checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
         sb.append("存储权限：").append(perm ? "已授予" : "未授予").append("\n");

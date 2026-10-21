@@ -30,6 +30,7 @@ public class ToolDispatcher {
         if (args == null) args = new JSONObject();
         JSONObject res = new JSONObject();
         try {
+            ShellRunner.mode = Prefs.sp(ctx).getString("privilege_mode", "auto");
             res.put("id", id);
             if (Prefs.killSwitch(ctx) && !tool.equals("ping") && !tool.equals("status")) {
                 res.put("ok", false);
@@ -117,9 +118,23 @@ public class ToolDispatcher {
         }
         if (tool.equals("notify")) return notify(a);
         if (tool.equals("shell")) return shellTool(a, cmdId);
-        if (tool.equals("shell.check")) {
+        if (tool.equals("shell.check")) return privilegeStatus();
+        if (tool.equals("privilege.status")) return privilegeStatus();
+        if (tool.equals("privilege.mode")) {
+            if (a.has("mode")) {
+                String m = a.getString("mode");
+                if (!m.equals("auto") && !m.equals("su") && !m.equals("shizuku")) {
+                    throw new Exception("bad_mode: " + m);
+                }
+                Prefs.sp(ctx).edit().putString("privilege_mode", m).apply();
+                ShellRunner.mode = m;
+            }
+            return privilegeStatus();
+        }
+        if (tool.equals("privilege.request")) {
             JSONObject o = new JSONObject();
-            o.put("root", ShellRunner.checkRoot());
+            o.put("requested", ShizukuPrivilege.request());
+            o.put("shizuku", ShizukuPrivilege.state());
             return o;
         }
         if (tool.equals("android.launch")) return androidLaunch(a);
@@ -154,10 +169,20 @@ public class ToolDispatcher {
         return s;
     }
 
+    private JSONObject privilegeStatus() throws Exception {
+        JSONObject o = new JSONObject();
+        o.put("mode", ShellRunner.mode);
+        o.put("root", ShellRunner.checkRoot());
+        o.put("shizuku", ShizukuPrivilege.state());
+        o.put("active", ShellRunner.activeChannel());
+        return o;
+    }
+
     private JSONObject status() throws Exception {
         JSONObject o = new JSONObject();
         o.put("app", "muse-shell");
-        o.put("version", "0.3.0");
+        o.put("version", "0.4.0");
+        o.put("privilege", privilegeStatus());
         o.put("android", Build.VERSION.RELEASE);
         o.put("sdk", Build.VERSION.SDK_INT);
         o.put("device", Build.MANUFACTURER + " " + Build.MODEL);

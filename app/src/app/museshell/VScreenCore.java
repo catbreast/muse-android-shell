@@ -35,11 +35,15 @@ public class VScreenCore {
     }
 
     private File dexFile() {
-        return new File(ctx.getFilesDir(), "core.dex");
+        // Must live somewhere the shell uid can read too (Shizuku channel):
+        // the app-private files dir is off limits to uid 2000.
+        return new File("/sdcard/MuseShell", "core.dex");
     }
 
     private void deployDex() throws Exception {
         File dst = dexFile();
+        File parent = dst.getParentFile();
+        if (parent != null && !parent.exists()) parent.mkdirs();
         InputStream in = ctx.getAssets().open("core.dex");
         FileOutputStream out = new FileOutputStream(dst, false);
         byte[] buf = new byte[65536];

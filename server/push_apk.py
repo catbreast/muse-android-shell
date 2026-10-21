@@ -27,8 +27,9 @@ for i, c in enumerate(chunks):
         sys.exit(1)
     print("chunk", i + 1, "/", len(chunks), "ok")
 
-cmd = (f"base64 -d {b64_path} > {apk_path} && ls -la {apk_path} "
-       f"&& pm install -r {apk_path}")
+tmp_apk = "/data/local/tmp/" + name
+cmd = (f"base64 -d {b64_path} > {apk_path} && cp {apk_path} {tmp_apk} "
+       f"&& chmod 644 {tmp_apk} && pm install -r {tmp_apk}")
 res = req("POST", "/call", {"tool": "shell", "args": {"cmd": cmd, "timeout": 120}, "timeout": 150},
           timeout=170)
 print("install:", res)

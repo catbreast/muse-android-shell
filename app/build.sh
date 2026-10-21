@@ -40,10 +40,11 @@ aapt2 link -o "$OUT/app-unsigned.apk" -I "$JAR" \
 
 echo '[2/6] javac'
 find "$APP/src" "$OUT/gen" -name '*.java' > "$OUT/sources.txt"
-javac --release 8 -cp "$JAR" -d "$OUT/classes" @"$OUT/sources.txt"
+LIBS="$(ls "$APP"/libs/*.jar 2>/dev/null | paste -sd: -)"
+javac --release 8 -cp "$JAR:$LIBS" -d "$OUT/classes" @"$OUT/sources.txt"
 
 echo '[3/6] d8'
-d8 --lib "$JAR" --min-api 26 --output "$OUT/dex" $(find "$OUT/classes" -name '*.class')
+d8 --lib "$JAR" --min-api 26 --output "$OUT/dex" $(find "$OUT/classes" -name '*.class') "$APP"/libs/*.jar
 
 echo '[4/6] package dex'
 cp "$OUT/app-unsigned.apk" "$OUT/app-dex.apk"
