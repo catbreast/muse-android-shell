@@ -73,6 +73,10 @@ cp $ANDROID_SDK/platforms/android-35/android.jar toolchain/android-35/
 cd server
 cp tokens.example.json tokens.json   # 填入自己的两把令牌
 python3 server.py                     # 只绑 127.0.0.1:8390，对外请套自己的隧道/反代
+
+# 或者用无服务器中继（推荐）：把 server/worker.js 部署成 Cloudflare Worker
+# （需一个 Durable Object 绑定 RELAY + 两个 Secret：PHONE_TOKEN / ADMIN_TOKEN，
+#  协议与 server.py 一致；手机端地址填 Worker 的域名即可，调用端见 phone.py）
 ```
 
 4. 调用方用 `server/phone.py call <tool> '<json>'` 即可驱动手机；
